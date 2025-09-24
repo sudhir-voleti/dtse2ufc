@@ -2,6 +2,7 @@ import streamlit as st
 import io
 import os
 from markitdown import MarkItDown
+import humanize
 
 # Set a simple page configuration
 st.set_page_config(
@@ -40,6 +41,13 @@ st.markdown(
     .stDownloadButton button:hover {
         background-color: #0056b3;
     }
+    .size-table th, .size-table td {
+        padding: 8px;
+        text-align: left;
+    }
+    .size-table tr:nth-child(even) {
+        background-color: #f2f2f2;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -75,6 +83,9 @@ if uploaded_file is not None:
         # The file content needs to be read into a bytes-like object for MarkItDown
         bytes_data = io.BytesIO(uploaded_file.getvalue())
 
+        # Get original file size
+        original_size_bytes = uploaded_file.size
+
         # Convert the file content
         markdown_text = convert_to_markdown(bytes_data)
 
@@ -82,22 +93,45 @@ if uploaded_file is not None:
     
     # Check if the conversion was successful before offering download
     if not markdown_text.startswith("Error"):
-        # --- Download Button ---
-        # Get the original filename without the extension
-        original_filename = os.path.splitext(uploaded_file.name)[0]
-        download_filename = f"{original_filename}.md"
+        # Get converted text size in bytes
+        converted_size_bytes = len(markdown_text.encode('utf-8'))
         
-        # Create a BytesIO object with the full text content for the download button
-        download_data = io.BytesIO(markdown_text.encode('utf-8'))
-        
-        st.download_button(
-            label="Download Full Text",
-            data=download_data,
-            file_name=download_filename,
-            mime="text/markdown",
-            use_container_width=True
-        )
+        # Create tabs
+        tab1, tab2 = st.tabs(["File Converter", "File Size Comparison"])
 
-        # --- Rendered Preview in an expandable section ---
-        with st.expander("Rendered Preview"):
-            st.markdown(markdown_text)
+        with tab1:
+            # --- Download Button ---
+            # Get the original filename without the extension
+            original_filename = os.path.splitext(uploaded_file.name)[0]
+            download_filename = f"{original_filename}.md"
+            
+            # Create a BytesIO object with the full text content for the download button
+            download_data = io.BytesIO(markdown_text.encode('utf-8'))
+            
+            st.download_button(
+                label="Download Full Text",
+                data=download_data,
+                file_name=download_filename,
+                mime="text/markdown",
+                use_container_width=True
+            )
+
+            # --- Rendered Preview in an expandable section ---
+            with st.expander("Rendered Preview"):
+                st.markdown(markdown_text)
+
+        with tab2:
+            st.subheader("Size Comparison")
+            
+            # Calculate percentage reduction
+            if original_size_bytes > 0:
+                reduction_percentage = ((original_size_bytes - converted_size_bytes) / original_size_bytes) * 100
+                st.markdown(f"The text version is **{reduction_percentage:.2f}%** smaller.")
+
+            # Display a clean table
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.metric("Original Size", humanize.naturalsize(original_size_bytes, binary=True))
+            with col2:
+                st.metric("Converted Size", humanize.naturalsize(converted_size_bytes, binary=True))
